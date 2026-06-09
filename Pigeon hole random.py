@@ -17,6 +17,7 @@ for i in range(m):
     x = np.zeros(n, dtype=int)
     x[positions] = 1
     matrix[ :, i] = x  # save column i
+    
     print('Positions:')
     print(positions)
     print('Column:')
