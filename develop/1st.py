@@ -55,36 +55,42 @@ print("Transpose:\n", A.transpose())
 
 
 class Party:
-    def __init__(self, A, k, l):
 
-        self.A = A      # the shared matrix
+    def __init__(self, A, k, l):# runs automatically when Party is created
+        # stores all the parameters and reserves empty spots for f, S, E, U, b
+        self.A = A      # shared matrix between P1 and P2
         self.k = k      # number of non-zero elements
         self.l = l      # number of columns for S and E
-        self.f = None
-        self.S = None
-        self.E = None
-        self.U = None
-        self.b = None
-
+        self.f = None   # secret vector, filled later by generate_f()
+        self.S = None   # secret matrix, filled later by generate_S()
+        self.E = None   # error matrix, filled later by generate_E()
+        self.U = None   # public value, filled later by compute_U()
+        self.b = None   # public value, filled later by compute_b()
+    
+    def generate_f(self):
+    # create secret binary vector f, size m×1
+    # k random positions set to 1, rest are 0
+        f = np.zeros(self.A.m, dtype=int)        # create empty vector size m
+        positions = np.random.choice(self.A.m, self.k, replace=False)  # pick k random positions, no repeats
+        f[positions] = 1                          # set those positions to 1
+        self.f = f.reshape(-1, 1)                # make it vertical (m×1)
+    
     def generate_S(self):
+    # create secret random binary matrix S, size n×l
+    # elements are randomly 0 or 1
         self.S = np.random.randint(0, 2, size=(self.A.n, self.l))
 
-    def generate_f(self):
 
-        f = np.zeros(self.A.m, dtype=int)  # start with all zeros
-        positions = np.random.choice(self.A.m, self.k, replace=False)  # pick k random positions
-        f[positions] = 1                    # set those positions to 1
-        self.f = f.reshape(-1, 1)
 
     def generate_E(self):
+        # create error matrix E, size m×l, start with all zeros
+        # each column gets k random positions set to 1 (independently)
 
-         E = np.zeros((self.A.m, self.l), dtype=int)  # start all zeros
-
-         for col in range(self.l):    # for each column
-
-             positions = np.random.choice(self.A.m, self.k, replace=False)  # pick k random positions
-             E[positions, col] = 1                     # set those positions to 1
-         self.E = E
+        E = np.zeros((self.A.m, self.l), dtype=int)  # start all zeros
+        for col in range(self.l):                     # loop through each column
+            positions = np.random.choice(self.A.m, self.k, replace=False)  # pick k random positions, no repeats
+            E[positions, col] = 1                     # set those positions to 1
+        self.E = E                                    # store in object
     
     # def generate_E(self):
 
@@ -92,6 +98,8 @@ class Party:
 
     def compute_U(self):
 
+        # compute U = A·S + E mod 2
+        # U is the public value sent to the other party
         self.U = (self.A.data @ self.S + self.E) % 2
 
     def compute_b(self):
