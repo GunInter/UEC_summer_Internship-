@@ -1,0 +1,190 @@
+# numpy: math library for matrix operations, imported as 'np' for shorter usage
+# lu: PLU decomposition function from scipy, so we don't have to calculate it manually
+import numpy as np
+from scipy.linalg import lu
+
+class Matrix:
+
+    # Blueprint for matrix object, using OOP to keep code clean and easy to reuse
+    def __init__(self, m, n):
+        self.m = m        # store number of rows
+        self.n = n        # store number of columns
+        self.data = None  # reserve empty spot for matrix numbers, filled later by generate()
+
+    def generate(self):
+    # randomly fill matrix with 0s and 1s (binary) and store in self.data
+        self.data = np.random.randint(0, 2, size=(self.m, self.n))
+
+
+    def is_full_rank(self):
+    # use PLU decomposition to find rank of matrix
+    # check diagonal of U for non-zero pivots
+    # if number of non-zero pivots == n → matrix is full rank ✅
+        P, L, U = lu(self.data)
+        rank = np.sum(np.abs(np.diag(U)) > 1e-10)
+        return rank == self.n
+    
+    def generate_full_rank(self):
+    # keep generating random matrix until we get one that is full rank
+    # only stops when is_full_rank() returns True
+        while True:
+            self.generate()
+            if self.is_full_rank():
+                break
+            
+    def transpose(self):
+        # flip the matrix — rows become columns, columns become rows
+        # e.g. shape 6x3 becomes 3x6
+        return self.data.T
+
+
+
+A = Matrix(6, 3)
+A.generate()
+A.generate_full_rank()
+
+print('Matrix columns:', A.m)
+print('Matrix rows:', A.n)
+
+print('Matrix data:',)
+print(A.data)
+
+print('Is the matrix full rank?', A.is_full_rank())
+print("Transpose:\n", A.transpose())
+
+
+
+class Party:
+
+    def __init__(self, A, k, l):# runs automatically when Party is created
+        # stores all the parameters and reserves empty spots for f, S, E, U, b
+        self.A = A      # shared matrix between P1 and P2
+        self.k = k      # number of non-zero elements
+        self.l = l      # number of columns for S and E
+        self.f = None   # secret vector, filled later by generate_f()
+        self.S = None   # secret matrix, filled later by generate_S()
+        self.E = None   # error matrix, filled later by generate_E()
+        self.U = None   # public value, filled later by compute_U()
+        self.b = None   # public value, filled later by compute_b()
+    
+    def generate_f(self):
+    # create secret binary vector f, size m×1
+    # k random positions set to 1, rest are 0
+        f = np.zeros(self.A.m, dtype=int)        # create empty vector size m
+        positions = np.random.choice(self.A.m, self.k, replace=False)  # pick k random positions, no repeats
+        f[positions] = 1                          # set those positions to 1
+        self.f = f.reshape(-1, 1)                # make it vertical (m×1)
+    
+    def generate_S(self):
+    # create secret random binary matrix S, size n×l
+    # elements are randomly 0 or 1
+        self.S = np.random.randint(0, 2, size=(self.A.n, self.l))
+
+
+
+    def generate_E(self):
+        # create error matrix E, size m×l, start with all zeros
+        # each column gets k random positions set to 1 (independently)
+
+        E = np.zeros((self.A.m, self.l), dtype=int)  # start all zeros
+        for col in range(self.l):                     # loop through each column
+            positions = np.random.choice(self.A.m, self.k, replace=False)  # pick k random positions, no repeats
+            E[positions, col] = 1                     # set those positions to 1
+        self.E = E                                    # store in object
+    
+    # def generate_E(self):
+
+    #     self.E = np.zeros((self.A.m, self.l), dtype=int)  # all zeros!
+
+    def compute_U(self):
+    # compute U = A·S + E mod 2
+    # U is the public value sent to the other party
+        self.U = (self.A.data @ self.S + self.E) % 2
+
+    def compute_b(self):
+    # compute b = Aᵀ·f mod 2
+    # b is the public value sent to the other party
+        self.b = (self.A.transpose() @ self.f) % 2
+
+    def compute_key(self, other):
+    # compute secret key K using other party's U and b
+    # K = other.Uᵀ·f + Sᵀ·other.b mod 2
+    # 'other' is the opposite party (P1 uses P2's values, P2 uses P1's values)
+        self.K = (other.U.T @ self.f + self.S.T @ other.b) % 2
+
+
+
+class LWEKeyExchange:
+
+    def __init__(self, m, n, k, l):
+    # runs automatically when LWEKeyExchange object is created
+    # stores all parameters and reserves empty spots for A, p1, p2
+        self.m = m      # number of rows
+        self.n = n      # number of columns
+        self.k = k      # number of non-zero elements
+        self.l = l      # number of columns for S and E
+        self.A = None   # shared matrix, filled later by setup()
+        self.p1 = None  # party 1, filled later by run()
+        self.p2 = None  # party 2, filled later by run()
+
+    def setup(self):
+    # create shared matrix A and make sure it is full rank before use
+        self.A = Matrix(self.m, self.n)       # create Matrix object
+        self.A.generate_full_rank()           # keep generating until full rank
+        print("A generated! Full rank:", self.A.is_full_rank())  # confirm ✅
+
+    def run(self):
+    # create P1 and P2 with shared matrix A
+    # each party generates their own secret f, S, E
+    # each party computes their public U and b
+    # each party computes their secret key K using the other's public values
+        self.p1 = Party(self.A, self.k, self.l)
+        self.p1.generate_f()
+        self.p1.generate_S()
+        self.p1.generate_E()
+        self.p1.compute_U()
+        self.p1.compute_b()
+
+        self.p2 = Party(self.A, self.k, self.l)
+        self.p2.generate_f()
+        self.p2.generate_S()
+        self.p2.generate_E()
+        self.p2.compute_U()
+        self.p2.compute_b()
+
+        # each party computes key using the OTHER party's public values
+        self.p1.compute_key(self.p2)
+        self.p2.compute_key(self.p1)  
+
+    def verify(self):
+        # compare K1 and K2 to check if key exchange was successful
+        # print result and show both keys
+        if np.array_equal(self.p1.K, self.p2.K):
+            print("✅ K1 == K2! Key exchange successful!")
+        else:
+            print("❌ K1 != K2! Key exchange failed!")
+        print("K1 =\n", self.p1.K)
+        print("K2 =\n", self.p2.K)
+
+
+
+
+lwe = LWEKeyExchange(m=4, n=2, k=1, l=2)
+lwe.setup()
+lwe.run()
+
+print("A =\n", lwe.A.data)
+print("f1 =\n", lwe.p1.f)
+print("S1 =\n", lwe.p1.S)
+print("E1 =\n", lwe.p1.E)
+print("U1 =\n", lwe.p1.U)
+print("b1 =\n", lwe.p1.b)
+print("f2 =\n", lwe.p2.f)
+print("S2 =\n", lwe.p2.S)
+print("E2 =\n", lwe.p2.E)
+print("U2 =\n", lwe.p2.U)
+print("b2 =\n", lwe.p2.b)
+print("K1 =\n", lwe.p1.K)
+print("K2 =\n", lwe.p2.K)
+
+lwe.verify()
