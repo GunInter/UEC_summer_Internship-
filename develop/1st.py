@@ -97,17 +97,19 @@ class Party:
     #     self.E = np.zeros((self.A.m, self.l), dtype=int)  # all zeros!
 
     def compute_U(self):
-
-        # compute U = A·S + E mod 2
-        # U is the public value sent to the other party
+    # compute U = A·S + E mod 2
+    # U is the public value sent to the other party
         self.U = (self.A.data @ self.S + self.E) % 2
 
     def compute_b(self):
-
+    # compute b = Aᵀ·f mod 2
+    # b is the public value sent to the other party
         self.b = (self.A.transpose() @ self.f) % 2
 
     def compute_key(self, other):
-
+    # compute secret key K using other party's U and b
+    # K = other.Uᵀ·f + Sᵀ·other.b mod 2
+    # 'other' is the opposite party (P1 uses P2's values, P2 uses P1's values)
         self.K = (other.U.T @ self.f + self.S.T @ other.b) % 2
 
 
@@ -115,22 +117,27 @@ class Party:
 class LWEKeyExchange:
 
     def __init__(self, m, n, k, l):
-        self.m = m
-        self.n = n
-        self.k = k
-        self.l = l
-        self.A = None
-        self.p1 = None
-        self.p2 = None
+    # runs automatically when LWEKeyExchange object is created
+    # stores all parameters and reserves empty spots for A, p1, p2
+        self.m = m      # number of rows
+        self.n = n      # number of columns
+        self.k = k      # number of non-zero elements
+        self.l = l      # number of columns for S and E
+        self.A = None   # shared matrix, filled later by setup()
+        self.p1 = None  # party 1, filled later by run()
+        self.p2 = None  # party 2, filled later by run()
 
     def setup(self):
-
-        self.A = Matrix(self.m, self.n)
-        self.A.generate_full_rank()
-        print("A generated! Full rank:", self.A.is_full_rank())
+    # create shared matrix A and make sure it is full rank before use
+        self.A = Matrix(self.m, self.n)       # create Matrix object
+        self.A.generate_full_rank()           # keep generating until full rank
+        print("A generated! Full rank:", self.A.is_full_rank())  # confirm ✅
 
     def run(self):
-
+    # create P1 and P2 with shared matrix A
+    # each party generates their own secret f, S, E
+    # each party computes their public U and b
+    # each party computes their secret key K using the other's public values
         self.p1 = Party(self.A, self.k, self.l)
         self.p1.generate_f()
         self.p1.generate_S()
@@ -145,11 +152,13 @@ class LWEKeyExchange:
         self.p2.compute_U()
         self.p2.compute_b()
 
+        # each party computes key using the OTHER party's public values
         self.p1.compute_key(self.p2)
-        self.p2.compute_key(self.p1)    
+        self.p2.compute_key(self.p1)  
 
     def verify(self):
-
+        # compare K1 and K2 to check if key exchange was successful
+        # print result and show both keys
         if np.array_equal(self.p1.K, self.p2.K):
             print("✅ K1 == K2! Key exchange successful!")
         else:
@@ -222,7 +231,7 @@ for i in range(100):
 
 print(f"K1 == K2: {count}/100 times")
 
-lwe = LWEKeyExchange(m=6, n=3, k=2, l=3)
+lwe = LWEKeyExchange(m=2, n=3, k=2, l=1000)
 print(lwe.m, lwe.n, lwe.k, lwe.l)
 
 lwe = LWEKeyExchange(m=6, n=3, k=2, l=3)
