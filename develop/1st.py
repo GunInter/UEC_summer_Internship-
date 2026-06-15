@@ -112,7 +112,11 @@ class Party:
     # 'other' is the opposite party (P1 uses P2's values, P2 uses P1's values)
         self.K = (other.U.T @ self.f + self.S.T @ other.b) % 2
 
-
+    def maj(self):
+        # count non-zero elements in K
+        non_zero = np.count_nonzero(self.K)
+        # if >= l/2 → return 1, else → return 0
+        return 1 if non_zero >= self.l / 2 else 0
 
 class LWEKeyExchange:
 

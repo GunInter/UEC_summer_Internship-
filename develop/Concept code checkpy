@@ -107,12 +107,16 @@ class Party:
         self.b = (self.A.transpose() @ self.f) % 2
 
     def compute_key(self, other):
-    # compute secret key K using other party's U and b
-    # K = other.Uᵀ·f + Sᵀ·other.b mod 2
-    # 'other' is the opposite party (P1 uses P2's values, P2 uses P1's values)
+        # compute secret key K using other party's U and b
+        # K = other.Uᵀ·f + Sᵀ·other.b mod 2
+        # 'other' is the opposite party (P1 uses P2's values, P2 uses P1's values)
         self.K = (other.U.T @ self.f + self.S.T @ other.b) % 2
 
-
+    def maj(self):
+        # count non-zero elements in K
+        non_zero = np.count_nonzero(self.K)
+        # if >= l/2 → return 1, else → return 0
+        return 1 if non_zero >= self.l / 2 else 0
 
 class LWEKeyExchange:
 
@@ -159,12 +163,14 @@ class LWEKeyExchange:
     def verify(self):
         # compare K1 and K2 to check if key exchange was successful
         # print result and show both keys
-        if np.array_equal(self.p1.K, self.p2.K):
-            print("✅ K1 == K2! Key exchange successful!")
+        maj1 = self.p1.maj()
+        maj2 = self.p2.maj()
+        if maj1 == maj2:
+            print("✅ maj(K1) == maj(K2)! Key exchange successful!")
         else:
-            print("❌ K1 != K2! Key exchange failed!")
-        print("K1 =\n", self.p1.K)
-        print("K2 =\n", self.p2.K)
+            print("❌ maj(K1) != maj(K2)! Key exchange failed!")
+        print("maj(K1) =", maj1)
+        print("maj(K2) =", maj2)
 
 
 
