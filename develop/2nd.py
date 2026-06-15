@@ -196,7 +196,7 @@ class LWEKeyExchange:
 lwe = LWEKeyExchange(m=512, n=256, k=32, l=1000)
 
 start = time.time()
-lwe.experiment(num_experiments=1, num_runs=100)
+lwe.experiment(num_experiments=1000, num_runs=10000)
 end = time.time()
 
 elapsed = end - start
