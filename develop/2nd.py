@@ -1,10 +1,8 @@
-import cupy as cp
 import numpy as np
 from scipy.linalg import lu
 import time
 
-# cupy: math library for matrix operations on GPU, imported as 'cp' for shorter usage
-# numpy: still needed for scipy PLU decomposition (scipy doesn't support cupy)
+# numpy: math library for matrix operations, imported as 'np' for shorter usage
 # lu: PLU decomposition function from scipy, so we don't have to calculate it manually
 
 
@@ -20,15 +18,13 @@ class Matrix:
 
     def generate(self):
         # randomly fill matrix with 0s and 1s (binary) and store in self.data
-        # using cupy (cp) instead of numpy for GPU acceleration
-        self.data = cp.random.randint(0, 2, size=(self.m, self.n))
+        self.data = np.random.randint(0, 2, size=(self.m, self.n))
 
     def is_full_rank(self):
         # use PLU decomposition to find rank of matrix
         # check diagonal of U for non-zero pivots
         # if number of non-zero pivots == n → matrix is full rank ✅
-        # convert to numpy first because scipy doesn't support cupy
-        P, L, U = lu(cp.asnumpy(self.data))
+        P, L, U = lu(self.data)
         rank = np.sum(np.abs(np.diag(U)) > 1e-10)
         return rank == self.n
 
@@ -65,22 +61,22 @@ class Party:
     def generate_f(self):
         # create secret binary vector f, size m×1
         # k random positions set to 1, rest are 0
-        f = cp.zeros(self.A.m, dtype=int)                              # create empty vector size m on GPU
-        positions = cp.random.choice(self.A.m, self.k, replace=False)  # pick k random positions, no repeats
+        f = np.zeros(self.A.m, dtype=int)                              # create empty vector size m
+        positions = np.random.choice(self.A.m, self.k, replace=False)  # pick k random positions, no repeats
         f[positions] = 1                                                # set those positions to 1
         self.f = f.reshape(-1, 1)                                       # make it vertical (m×1)
 
     def generate_S(self):
         # create secret random binary matrix S, size n×l
         # elements are randomly 0 or 1
-        self.S = cp.random.randint(0, 2, size=(self.A.n, self.l))
+        self.S = np.random.randint(0, 2, size=(self.A.n, self.l))
 
     def generate_E(self):
         # create error matrix E, size m×l, start with all zeros
         # each column gets k random positions set to 1 (independently)
-        E = cp.zeros((self.A.m, self.l), dtype=int)  # start all zeros on GPU
+        E = np.zeros((self.A.m, self.l), dtype=int)  # start all zeros
         for col in range(self.l):                     # loop through each column
-            positions = cp.random.choice(self.A.m, self.k, replace=False)  # pick k random positions, no repeats
+            positions = np.random.choice(self.A.m, self.k, replace=False)  # pick k random positions, no repeats
             E[positions, col] = 1                     # set those positions to 1
         self.E = E                                    # store in object
 
@@ -104,7 +100,7 @@ class Party:
         # majority voting function — reconciliation step
         # count non-zero elements in K
         # if >= l/2 → return 1, else → return 0
-        non_zero = cp.count_nonzero(self.K)
+        non_zero = np.count_nonzero(self.K)
         return 1 if non_zero >= self.l / 2 else 0
 
 
@@ -149,30 +145,23 @@ class LWEKeyExchange:
         self.p1.compute_key(self.p2)
         self.p2.compute_key(self.p1)
 
-    def verify(self):
-        # compare maj(K1) and maj(K2) to check if key exchange was successful
-        # print result and show both keys
-        maj1 = self.p1.maj()
-        maj2 = self.p2.maj()
-        if maj1 == maj2:
-            print("✅ maj(K1) == maj(K2)! Key exchange successful!")
-        else:
-            print("❌ maj(K1) != maj(K2)! Key exchange failed!")
-        print("maj(K1) =", maj1)
-        print("maj(K2) =", maj2)
-
     def experiment(self, num_experiments=10000, num_runs=10000):
-
+        # run the key exchange num_experiments times
+        # each experiment runs num_runs times and counts how many times maj(K1) == maj(K2)
+        # find the average success rate across all experiments
         results = []
 
         for exp in range(num_experiments):
             count = 0
-            self.setup()
+            self.setup()  # generate new A for each experiment
+
             for i in range(num_runs):
                 self.run()
                 if self.p1.maj() == self.p2.maj():
                     count += 1
+
             results.append(count)
+
             if (exp + 1) % 100 == 0:
                 print(f"Experiment {exp+1}/{num_experiments} done...")
 
@@ -182,25 +171,24 @@ class LWEKeyExchange:
 
         # save results to file
         with open("results.txt", "w") as f:
+
             f.write(f"Parameters: m={self.m}, n={self.n}, k={self.k}, l={self.l}\n")
             f.write(f"Experiments: {num_experiments}, Runs per experiment: {num_runs}\n")
             f.write(f"Average success rate: {average:.4f}\n")
             f.write(f"Average times maj(K1)==maj(K2): {np.mean(results):.1f}/{num_runs}\n")
             f.write(f"All results: {results}\n")
         print("Results saved to results.txt ✅")
-
         return average
 
 
+
 # --- Run with professor's parameters ---
-lwe = LWEKeyExchange(m=512, n=256, k=32, l=1000)
+lwe = LWEKeyExchange(m=64, n=32, k=8, l=1000)
 
 start = time.time()
-lwe.experiment(num_experiments=1000, num_runs=10000)
+lwe.experiment(num_experiments=1, num_runs=1000)  # small test first to estimate time
 end = time.time()
 
 elapsed = end - start
-estimated_10000 = elapsed * 10
-
-print(f"\nTime for 1000 experiments: {elapsed:.1f} seconds")
-print(f"Estimated time for 10000 experiments: {estimated_10000/60:.1f} minutes")
+print(f"\nTime for 1 experiment x 1000 runs: {elapsed:.1f} seconds")
+print(f"Estimated for 1000x1000: {elapsed * 100000 / 60:.0f} minutes")

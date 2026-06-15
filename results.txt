@@ -1,5 +1,5 @@
 Parameters: m=512, n=256, k=32, l=1000
-Experiments: 1, Runs per experiment: 100
-Average success rate: 0.5500
-Average times maj(K1)==maj(K2): 55.0/100
-All results: [55]
+Experiments: 1, Runs per experiment: 1000
+Average success rate: 0.5000
+Average times maj(K1)==maj(K2): 500.0/1000
+All results: [500]
