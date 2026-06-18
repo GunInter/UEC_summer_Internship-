@@ -163,12 +163,39 @@ class LWEKeyExchange:
     def verify(self):
         # compare K1 and K2 to check if key exchange was successful
         # print result and show both keys
-        if np.array_equal(self.p1.K, self.p2.K):
-            print("✅ K1 == K2! Key exchange successful!")
+        maj1 = self.p1.maj()
+        maj2 = self.p2.maj()
+        if maj1 == maj2:
+            print("✅ maj(K1) == maj(K2)! Key exchange successful!")
         else:
-            print("❌ K1 != K2! Key exchange failed!")
-        print("K1 =\n", self.p1.K)
-        print("K2 =\n", self.p2.K)
+            print("❌ maj(K1) != maj(K2)! Key exchange failed!")
+        print("maj(K1) =", maj1)
+        print("maj(K2) =", maj2)
+
+    def experiment(self, num_experiments=10000, num_runs=10000):
+
+        results = []
+        
+        for exp in range(num_experiments):
+            count = 0
+            self.setup()  # generate new A for each experiment
+            
+            for i in range(num_runs):
+                self.run()
+                if self.p1.maj() == self.p2.maj():
+                    count += 1
+            
+            results.append(count)
+            
+            # print progress every 1000 experiments
+            if (exp + 1) % 1000 == 0:
+                print(f"Experiment {exp+1}/10000 done...")
+        
+        average = np.mean(results) / num_runs
+        print(f"\nAverage success rate: {average:.4f}")
+        print(f"Average times maj(K1)==maj(K2): {np.mean(results):.1f}/10000")
+        return average
+
 
 
 p1 = Party(A, k=2, l=3)

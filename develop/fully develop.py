@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.linalg import lu
 import time
-
 # numpy: math library for matrix operations, imported as 'np' for shorter usage
 # lu: PLU decomposition function from scipy, so we don't have to calculate it manually
 
@@ -181,14 +180,17 @@ class LWEKeyExchange:
         return average
 
 
-
+A = Matrix(512, 256)
+A.generate()
+print(A.is_full_rank())  # True or False
 # --- Run with professor's parameters ---
-lwe = LWEKeyExchange(m=64, n=32, k=8, l=1000)
+lwe = LWEKeyExchange(m=512, n=256, k=32, l=1000)
+
 
 start = time.time()
-lwe.experiment(num_experiments=1, num_runs=1000)  # small test first to estimate time
+lwe.experiment(num_experiments=100, num_runs=10000)  # small test first to estimate time
 end = time.time()
 
 elapsed = end - start
-print(f"\nTime for 1 experiment x 1000 runs: {elapsed:.1f} seconds")
+print(f"\nTime for 1 experiment x 100 runs: {elapsed:.1f} seconds")
 print(f"Estimated for 1000x1000: {elapsed * 100000 / 60:.0f} minutes")
